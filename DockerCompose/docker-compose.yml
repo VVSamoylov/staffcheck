@@ -27,7 +27,6 @@ services:
     depends_on:
       - dbkeycloack
     environment:
-        #KC_HEALTH_ENABLED: true
         KC_METRICS_ENABLED: true
         KC_BOOTSTRAP_ADMIN_USERNAME: login_admin # заменить на свой
         KC_BOOTSTRAP_ADMIN_PASSWORD: password # заменить на свой
@@ -43,7 +42,7 @@ services:
     volumes:
       - ./certs/tvsamara.pem:/opt/keycloak/conf/domen.pem # путь к сертификатам
       - ./certs/tvsamara.key.pem:/opt/keycloak/conf/domen.key.pem # путь к сертификатам
-      - ./keycloak/:/opt/keycloak/data/import 
+      - ./keycloak/:/opt/keycloak/data/import # файл бекапа импорта групп и учеток если есть
     ports:
       - "9443:9443"
 
@@ -97,7 +96,7 @@ services:
       SSL_SERTIFICATE: "/var/certs/domen.crt" # путь к сертификатам
       SERVER_SSL_TRUST_STORE: "/app/truststore.jks" # путь к файлу подписи для java
       TRUSTSTORE: "/app/truststore.jks"
-      SERVER_SSL_TRUST_STORE_PASSWORD: password # пароль для файла подписи  java
+      SERVER_SSL_TRUST_STORE_PASSWORD: password # пароль для файла подписи самописного серификата для java, если используется нрмальный то это файл не нужен
       SERVER_SSL_TRUST_STORE_TYPE: JKS
     ports:
       - 8443:8443
@@ -171,7 +170,7 @@ services:
       - 2692:9200 # REST API
       - 2696:9600 # Performance Analyzer
     networks:
-      - staff-network # All of the containers will join the same Docker bridge network
+      - staff-network
   opensearch-staff-node2:
     image: opensearchproject/opensearch:latest
     container_name: opensearch-staff-node2
@@ -198,13 +197,13 @@ services:
     volumes:
       - opensearch-data2:/usr/share/opensearch/data # Создает том с именем opensearch-data2 и монтирует его в контейнер
     networks:
-      - staff-network # All of the containers will join the same Docker bridge network
+      - staff-network 
   opensearch-dashboards:
     image: opensearchproject/opensearch-dashboards:latest
     container_name: opensearch-dashboards
     restart: unless-stopped
     ports:
-      - 2601:5601 # Map host port 5601 to container port 5601
+      - 2601:5601 
     expose:
       - "5601" # открываем порт 5601 во внутренней сети докера для OpenSearch Dashboards
     environment:
