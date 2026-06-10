@@ -40,8 +40,8 @@ services:
         KC_HTTPS_CERTIFICATE_FILE: /opt/keycloak/conf/domen.pem # путь к сертификатам
         KC_HTTPS_CERTIFICATE_KEY_FILE: /opt/keycloak/conf/domen.key.pem # путь к сертификатам
     volumes:
-      - ./certs/tvsamara.pem:/opt/keycloak/conf/domen.pem # путь к сертификатам
-      - ./certs/tvsamara.key.pem:/opt/keycloak/conf/domen.key.pem # путь к сертификатам
+      - ./certs/domen.pem:/opt/keycloak/conf/domen.pem # путь к сертификатам
+      - ./certs/.domenkey.pem:/opt/keycloak/conf/domen.key.pem # путь к сертификатам
       - ./keycloak/:/opt/keycloak/data/import # файл бекапа импорта групп и учеток если есть
     ports:
       - "9443:9443"
