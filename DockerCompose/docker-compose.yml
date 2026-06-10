@@ -86,7 +86,7 @@ services:
       GTRK_POSTGRESS_DB_PORT: "5432"
       GTRK_POSTGRESS_DB_USERNAME: "login_admin"
       GTRK_POSTGRESS_DB_PASSWORD: "password"
-      CLIENT_ID: "appid"
+      CLIENT_ID: "gtrk"
       HOST_URI: "https://staff.domen.ru:8443"
       ISSUER_URI: "https://sso.domen.ru:9443"
       LOAD_1C: "/var/load1C"
