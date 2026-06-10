@@ -1,0 +1,24 @@
+.bold{
+    font-weight: bold;
+}
+.howerBorder{
+    border-color: black;
+    border-width: 2px;
+    border-style: solid;
+}
+.borderRight{
+    border-right-width: 2px;
+    border-right-color: black;
+    border-right-style: solid;
+}
+.borderBottom{
+    border-bottom-color: black;
+    border-bottom-width: 2px;
+    border-bottom-style: solid;
+}
+.textCenter{
+    text-align: center;
+}
+.buttonText{
+    color: white;
+}

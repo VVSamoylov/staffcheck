@@ -1,0 +1,10 @@
+.inputgroup {
+    width: 100%;
+}
+.bold{
+    font-weight: bold;
+}
+
+.scrollx{
+    overflow-x: scroll;
+}

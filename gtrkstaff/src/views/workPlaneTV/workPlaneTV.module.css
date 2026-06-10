@@ -1,0 +1,37 @@
+.inputGr{
+    width: 100%;
+}
+ .tableheader{
+    background-color: cadetblue;
+}
+.maginTop{
+    vertical-align: middle;
+    text-align: center;
+    padding-top: 1%;
+    padding-bottom: 0px;
+}
+.textCenter{
+    text-align: center;
+    vertical-align: middle;
+}
+.textRight{
+    text-align: right;
+}
+.marginLeft{
+    margin-left: 5px;
+}
+.areatext{
+    margin-left: 3%;
+    text-align: center;
+    text-wrap-mode: balance;
+
+    border-bottom-width: 1px;
+    border-bottom-style: solid;
+    border-bottom-color: darkgray;
+}
+.colorAlarm{
+    color: brown;
+}
+.colorBlack{
+    color: black;
+}

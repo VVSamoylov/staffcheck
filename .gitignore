@@ -1,0 +1,7 @@
+# Node.js
+gtrkstaff/node_modules/
+
+# Maven
+staff/target/
+staff/.idea
+staff/.mvn

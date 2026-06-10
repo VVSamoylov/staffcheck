@@ -1,0 +1,231 @@
+services:
+  dbkeycloack:
+    image: postgres:18
+    container_name: keycloack-db
+    environment:
+      POSTGRES_USER: keycloack #заменить на свой     
+      POSTGRES_PASSWORD: password #пароль заменить на свой
+      POSTGRES_DB: keycloack
+    ports:
+      - 5532:5432
+    volumes:
+      - keycloack-postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloack -d keycloack"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    networks:
+       - staff-network
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.2.4
+    container_name: sso.domen.ru 
+    command: start -v --import-realm
+    restart: unless-stopped
+    depends_on:
+      - dbkeycloack
+    environment:
+        #KC_HEALTH_ENABLED: true
+        KC_METRICS_ENABLED: true
+        KC_BOOTSTRAP_ADMIN_USERNAME: login_admin # заменить на свой
+        KC_BOOTSTRAP_ADMIN_PASSWORD: password # заменить на свой
+        KC_DB: postgres
+        KC_DB_URL: jdbc:postgresql://keycloack-db:5432/keycloack
+        KC_DB_USERNAME: keycloack
+        KC_DB_PASSWORD: password # заменить на свой
+        KC_HOSTNAME: sso.domen.ru # заменить на свой
+        KC_HTTPS_PORT: 9443 # заменить на свой
+        KC_IMPORT_PATH: /opt/keycloak/data/import/realm_import.json #путь к сохраненым учеткам
+        KC_HTTPS_CERTIFICATE_FILE: /opt/keycloak/conf/domen.pem # путь к сертификатам
+        KC_HTTPS_CERTIFICATE_KEY_FILE: /opt/keycloak/conf/domen.key.pem # путь к сертификатам
+    volumes:
+      - ./certs/tvsamara.pem:/opt/keycloak/conf/domen.pem # путь к сертификатам
+      - ./certs/tvsamara.key.pem:/opt/keycloak/conf/domen.key.pem # путь к сертификатам
+      - ./keycloak/:/opt/keycloak/data/import 
+    ports:
+      - "9443:9443"
+
+    networks:
+      - staff-network
+        
+  db:
+    image: postgres:18
+    container_name: app-db
+    environment:
+      POSTGRES_USER: login_admin # заменить на свой     
+      POSTGRES_PASSWORD: password # заменить на свой
+      POSTGRES_DB: appdb
+    ports:
+      - 5432:5432
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U password -d appdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    networks:
+        - staff-network
+  app:
+    build: .
+    image: staff:1
+    container_name: staff.domain.ru
+    restart: unless-stopped
+    depends_on:
+       - db
+       - keycloak
+         
+    environment:
+      loadTemp: /var/loadTemp
+      SPRING_DATASOURCE_URL: jdbc:postgresql://app-db:5432/appdb
+      SPRING_DATASOURCE_USERNAME: login_admin # заменить на свой 
+      SPRING_DATASOURCE_PASSWORD: password # заменить на свой 
+      GTRK_POSTGRESS_DB_PORT: "5432"
+      GTRK_POSTGRESS_DB_USERNAME: "login_admin"
+      GTRK_POSTGRESS_DB_PASSWORD: "password"
+      CLIENT_ID: "appid"
+      HOST_URI: "https://staff.domen.ru:8443"
+      ISSUER_URI: "https://sso.domen.ru:9443"
+      LOAD_1C: "/var/load1C"
+      LOAD_SKUD: "/var/loadskud"
+      SERVER_PORT: "8443"
+      SSL_PRIVATE_KEY: "/var/certs/domen.key" # путь к сертификатам
+      SSL_SERTIFICATE: "/var/certs/domen.crt" # путь к сертификатам
+      SERVER_SSL_TRUST_STORE: "/app/truststore.jks" # путь к файлу подписи для java
+      TRUSTSTORE: "/app/truststore.jks"
+      SERVER_SSL_TRUST_STORE_PASSWORD: password # пароль для файла подписи  java
+      SERVER_SSL_TRUST_STORE_TYPE: JKS
+    ports:
+      - 8443:8443
+    volumes:
+      - /var/tmp:/var/loadTemp
+      - /var/load1C:/var/load1C
+      - /var/loadSkud:/var/loadskud #папка для загрузки СКУД сделать общей сетевой
+      - ./certs//truststore.jks:/app/truststore.jks
+      - ./certs:/var/certs
+      - app-logs:/var/log/app  # Монтируем том для логов
+                # Если логи идут в stdout/stderr — ничего дополнительно не нужно
+
+    logging:
+      driver: "json-file"  # Драйвер по умолчанию
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    networks:
+       - staff-network
+            
+  fluentbit:
+    image: fluent/fluent-bit:4.2.0
+    container_name: fluentbit-gtrkhr
+    volumes:
+      - ./fluentbit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf
+      - ./fluentbit/parsers.conf:/fluent-bit/etc/parsers.conf
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro  # для чтения логов Docker
+      - app-logs:/var/log/app  # Синхронизируем том с логами приложения
+    depends_on:
+      - app
+      - opensearch-staff-node1
+      - opensearch-staff-node2
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:2020/api/v1/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+    networks:
+      - staff-network
+
+  opensearch-staff-node1:
+    image: opensearchproject/opensearch:latest
+    container_name: opensearch-staff-node1
+    restart: unless-stopped
+    environment:
+      - cluster.name=opensearch-cluster # Имя кластера
+      - node.name=opensearch-staff-node1 # Имя узла, который будет работать в этом контейнере
+      - discovery.seed_hosts=opensearch-staff-node1,opensearch-staff-node2 # Узлы, которые следует искать при запуске кластера
+      - cluster.initial_cluster_manager_nodes=opensearch-staff-node1,opensearch-staff-node2 # Узлы, имеющие право выполнять функции менеджера кластера
+      - bootstrap.memory_lock=true # Отключить swap памяти кучи JVM
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m" # Установить минимальный и максимальный размеры кучи JVM на уровне не менее 50% системной оперативной памяти
+      - "DISABLE_INSTALL_DEMO_CONFIG=true" # Предотвращает выполнение входящего в комплект демонстрационного скрипта, который устанавливает демонстрационные сертификаты и конфигурации безопасности в OpenSearch
+      - "DISABLE_SECURITY_PLUGIN=true" # Отключить Security plugin
+      - OPENSEARCH_ENABLE_PERFORMANCE_ANALYZER=false
+
+      - OPENSEARCH_USERNAME='login_admin' # заменить на свой 
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=password # пароль без кавычек заменить на свой 
+    ulimits:
+      memlock:
+        soft: -1 # Установите значение memlock неограниченным (без мягкого или жесткого ограничения)
+        hard: -1
+      nofile:
+        soft: 65536 # Максимальное количество открытых файлов для пользователя opensearch - не менее 65536
+        hard: 65536
+    volumes:
+      - opensearch-data1:/usr/share/opensearch/data # Создает том с именем opensearch-data1 и монтирует его в контейнер
+    ports:
+      - 2692:9200 # REST API
+      - 2696:9600 # Performance Analyzer
+    networks:
+      - staff-network # All of the containers will join the same Docker bridge network
+  opensearch-staff-node2:
+    image: opensearchproject/opensearch:latest
+    container_name: opensearch-staff-node2
+    restart: unless-stopped
+    environment:
+      - cluster.name=opensearch-cluster # Имя кластера docker pull 
+      - node.name=opensearch-staff-node2 # Имя узла, который будет работать в этом контейнере
+      - discovery.seed_hosts=opensearch-staff-node1,opensearch-staff-node2 # Узлы, которые следует искать при запуске кластера
+      - cluster.initial_cluster_manager_nodes=opensearch-staff-node1,opensearch-staff-node2 # Узлы, имеющие право выполнять функции менеджера кластера
+      - bootstrap.memory_lock=true # Отключить swap памяти кучи JVM
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m" # Установить минимальный и максимальный размеры кучи JVM на уровне не менее 50% системной оперативной памяти
+      - "DISABLE_INSTALL_DEMO_CONFIG=true" # Предотвращает выполнение входящего в комплект демонстрационного скрипта, который устанавливает демонстрационные сертификаты и конфигурации безопасности в OpenSearch
+      - "DISABLE_SECURITY_PLUGIN=true" # Отключить Security plugin
+      - OPENSEARCH_ENABLE_PERFORMANCE_ANALYZER=false
+      - OPENSEARCH_USERNAME='login_admin'
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=password  # пароль без кавычек
+    ulimits:
+      memlock:
+        soft: -1 # Установите значение memlock неограниченным (без мягкого или жесткого ограничения)
+        hard: -1
+      nofile:
+        soft: 65536 # Максимальное количество открытых файлов для пользователя opensearch - не менее 65536
+        hard: 65536
+    volumes:
+      - opensearch-data2:/usr/share/opensearch/data # Создает том с именем opensearch-data2 и монтирует его в контейнер
+    networks:
+      - staff-network # All of the containers will join the same Docker bridge network
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:latest
+    container_name: opensearch-dashboards
+    restart: unless-stopped
+    ports:
+      - 2601:5601 # Map host port 5601 to container port 5601
+    expose:
+      - "5601" # открываем порт 5601 во внутренней сети докера для OpenSearch Dashboards
+    environment:
+      - 'OPENSEARCH_HOSTS=["http://opensearch-staff-node1:9200","http://opensearch-staff-node2:9200"]'
+      - "DISABLE_SECURITY_DASHBOARDS_PLUGIN=true" # disables security dashboards plugin in OpenSearch Dashboards
+    networks:
+      - staff-network
+
+
+
+volumes:
+  postgres-data:
+  keycloack-postgres-data:
+  load1C:
+  loadskud:
+  loadTemp:
+  app-logs:
+  opensearch-data1:
+  opensearch-data2:
+
+networks:
+    staff-network:
+       driver: bridge
+

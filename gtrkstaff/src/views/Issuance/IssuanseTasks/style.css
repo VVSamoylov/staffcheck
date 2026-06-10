@@ -1,0 +1,26 @@
+.borderRow{
+    border-width: 1%;
+    border-style: solid;
+    border-color: darkolivegreen;
+    padding-top: 1%;
+    padding-bottom: 1%;
+    margin-bottom: -2px;
+}
+.marginBottom{
+    margin-bottom: 1%;
+}
+.header{
+    border-top-width: 1%;
+    border-top-style: solid;
+    border-left-width: 1%;
+    border-left-style: solid;
+    border-right-width: 1%;
+    border-right-style: solid;
+    border-color: darkolivegreen;
+    padding-top: 1%;
+    padding-bottom: 1%;
+    background-color: dodgerblue;
+}
+.input-group{
+    width: 100%;
+}
